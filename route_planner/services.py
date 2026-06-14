@@ -52,6 +52,8 @@ async def geocode(query: str) -> Tuple[str, str]:
 
 class RoutingService:
     """All methods related to routing logic comes here"""
+    TARGET_POLYLINE_POINTS = 200
+
     start_point: List[float] = []
     end_point: List[float] = []
     route_polyline: List[List[float]] = []
@@ -104,7 +106,8 @@ class RoutingService:
             return None, None
         
         decoded = polyline.decode(compressed_polyline)
-        lats, lons = zip(*islice(decoded, 0, None, 10))
+        step = max(1, len(decoded) // self.TARGET_POLYLINE_POINTS)
+        lats, lons = zip(*islice(decoded, 0, None, step))
         clean_polyline = list(zip(lons, lats))
         return clean_polyline, total_distance
     
@@ -327,4 +330,5 @@ class FuelCostOptimizer:
             'total_cost_usd':   round(total_cost, 2),
             'total_gallons':    round(total_gallons, 2),
             'number_of_stops':  len(optimal_stops),
+            'total_distance': round(self.total_route_distance, 1)
         }
