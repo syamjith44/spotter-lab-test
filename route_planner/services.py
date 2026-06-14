@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 async def geocode(query: str) -> Tuple[str, str]:
     """get geocodes for the location"""
 
-    cache_key = generate_cache_key("polyline", query)
+    cache_key = generate_cache_key("geocode", query)
     cached = cache.get(cache_key)
     if cached:
-        logger.debug("Cache hit: polyline")
+        logger.info("Cache hit: polyline")
         return cached
     
     geocode_url = "https://geocode.maps.co/search"
@@ -70,6 +70,13 @@ class RoutingService:
         )
 
     def get_route_polyline(self):
+        cache_key = generate_cache_key(
+            "polyline", self.start_point, self.end_point
+        )
+        cached = cache.get(cache_key)
+        if cached:
+            logger.info("Cache hit: polyline")
+            return cached
         route_api = "https://api.openrouteservice.org/v2/directions/driving-hgv"
 
         headers = {
@@ -109,6 +116,11 @@ class RoutingService:
         step = max(1, len(decoded) // self.TARGET_POLYLINE_POINTS)
         lats, lons = zip(*islice(decoded, 0, None, step))
         clean_polyline = list(zip(lons, lats))
+        cache.set(
+            cache_key, 
+            (clean_polyline, total_distance), 
+            timeout=60*60*24
+        )
         return clean_polyline, total_distance
     
     def get_bbox(self, radius_miles):
