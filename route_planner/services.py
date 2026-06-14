@@ -5,7 +5,7 @@ import httpx
 import math
 import polyline
 
-from itertools import pairwise
+from itertools import pairwise, islice
 from typing import Tuple, List
 from django.conf import settings
 from django.core.cache import cache
@@ -68,11 +68,6 @@ class RoutingService:
         )
 
     def get_route_polyline(self):
-        cache_key = generate_cache_key("polyline", self.start_point, self.end_point)
-        cached = cache.get(cache_key)
-        if cached:
-            logger.debug("Cache hit: polyline")
-            return cached
         route_api = "https://api.openrouteservice.org/v2/directions/driving-hgv"
 
         headers = {
@@ -83,6 +78,7 @@ class RoutingService:
         payload = {
             "coordinates": [self.start_point, self.end_point],
             "instructions": False,
+            "geometry_simplify": True
         }
 
 
@@ -107,16 +103,10 @@ class RoutingService:
             )
             return None, None
         
-        clean_polyline = [
-            [lon, lat] for lat, lon in
-            polyline.decode(compressed_polyline)
-        ]
-        cache.set(
-            cache_key, 
-            (clean_polyline[::10], total_distance), 
-            timeout=60*60*24
-        )
-        return clean_polyline[::10], total_distance
+        decoded = polyline.decode(compressed_polyline)
+        lats, lons = zip(*islice(decoded, 0, None, 10))
+        clean_polyline = list(zip(lons, lats))
+        return clean_polyline, total_distance
     
     def get_bbox(self, radius_miles):
         longitudes, latitudes = zip(*self.route_polyline)
